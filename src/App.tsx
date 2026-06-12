@@ -35,6 +35,10 @@ const saveFallbackSubmissions = (submissions: Submission[]) => {
 };
 
 const getInitialTeam = (): TeamId => {
+  if (window.location.pathname.includes("team-p")) {
+    return "team-p";
+  }
+
   if (window.location.pathname.includes("team-k")) {
     return "team-k";
   }
@@ -59,6 +63,7 @@ const safeFileName = (name: string) =>
 
 function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<TeamId>(getInitialTeam);
+  const [playerTeamId, setPlayerTeamId] = useState<TeamId>(getInitialTeam);
   const [participantName, setParticipantName] = useState(
     () => window.localStorage.getItem(participantNameKey) ?? "",
   );
@@ -77,18 +82,20 @@ function App() {
 
   const isAdminRoute = window.location.pathname.startsWith("/admin");
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? teams[0];
+  const playerTeam = teams.find((team) => team.id === playerTeamId) ?? selectedTeam;
 
   const loadSubmissions = async () => {
     setIsRefreshing(true);
     setNotice("");
+    const client = supabase;
 
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isSupabaseConfigured || !client) {
       setSubmissions(fallbackSubmissions());
       setIsRefreshing(false);
       return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("submissions")
       .select("*")
       .order("created_at", { ascending: false });
@@ -96,7 +103,7 @@ function App() {
     if (error) {
       setNotice(`Could not load submissions: ${error.message}`);
     } else {
-      setSubmissions(data ?? []);
+      setSubmissions((data ?? []) as Submission[]);
     }
 
     setIsRefreshing(false);
@@ -104,12 +111,13 @@ function App() {
 
   useEffect(() => {
     void loadSubmissions();
+    const client = supabase;
 
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isSupabaseConfigured || !client) {
       return;
     }
 
-    const channel = supabase
+    const channel = client
       .channel("birthday-race-submissions")
       .on(
         "postgres_changes",
@@ -119,7 +127,7 @@ function App() {
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, []);
 
@@ -155,6 +163,7 @@ function App() {
     window.localStorage.setItem(participantNameKey, cleanName);
     window.localStorage.setItem(participantTeamKey, selectedTeamId);
     setParticipantName(cleanName);
+    setPlayerTeamId(selectedTeamId);
     setNotice(`Welcome to ${selectedTeam.name}, ${cleanName}!`);
     window.history.pushState({}, "", "/");
   };
@@ -177,18 +186,24 @@ function App() {
       return;
     }
 
+    if (!proofFile && !caption.trim()) {
+      setNotice("Add a photo, video, or note as proof before submitting.");
+      return;
+    }
+
     setIsSubmitting(true);
     setNotice("");
+    const client = supabase;
 
     try {
       let proofUrl: string | null = null;
       let proofType: string | null = proofFile?.type ?? null;
 
-      if (isSupabaseConfigured && supabase && proofFile) {
-        const path = `${selectedTeamId}/${activeChallenge.id}/${Date.now()}-${safeFileName(
+      if (isSupabaseConfigured && client && proofFile) {
+        const path = `${playerTeamId}/${activeChallenge.id}/${Date.now()}-${safeFileName(
           proofFile.name,
         )}`;
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await client.storage
           .from(proofBucket)
           .upload(path, proofFile, {
             cacheControl: "3600",
@@ -199,12 +214,12 @@ function App() {
           throw uploadError;
         }
 
-        const { data } = supabase.storage.from(proofBucket).getPublicUrl(path);
+        const { data } = client.storage.from(proofBucket).getPublicUrl(path);
         proofUrl = data.publicUrl;
       }
 
       const submission: Omit<Submission, "id" | "created_at"> = {
-        team_id: selectedTeamId,
+        team_id: playerTeamId,
         challenge_id: activeChallenge.id,
         participant_name: participantName.trim(),
         caption: caption.trim() || null,
@@ -213,8 +228,8 @@ function App() {
         status: "approved",
       };
 
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase.from("submissions").insert(submission);
+      if (isSupabaseConfigured && client) {
+        const { error } = await client.from("submissions").insert(submission);
         if (error) {
           throw error;
         }
@@ -229,7 +244,7 @@ function App() {
         setSubmissions(nextSubmissions);
       }
 
-      setNotice(`${activeChallenge.title} is complete for ${selectedTeam.name}!`);
+      setNotice(`${activeChallenge.title} is complete for ${playerTeam.name}!`);
       setCaption("");
       setProofFile(null);
       setActiveChallenge(null);
@@ -382,7 +397,7 @@ function App() {
           caption={caption}
           isSubmitting={isSubmitting}
           proofFile={proofFile}
-          selectedTeam={selectedTeam}
+          selectedTeam={playerTeam}
           setActiveChallenge={setActiveChallenge}
           setCaption={setCaption}
           setProofFile={setProofFile}
