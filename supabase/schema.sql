@@ -76,22 +76,22 @@ on conflict (id) do update set
 
 insert into public.challenges (id, title, description, icon, board_position)
 values
-  ('run-5k', 'Run a 5k / 3 mile', 'Snap your route, treadmill screen, or finish-line selfie.', '🏃', 1),
-  ('fond-memory', 'Share a fond memory', 'Post a sweet, funny, or chaotic memory of the birthday girl.', '💌', 2),
-  ('ted-talk', '1 minute TED talk', 'Record a passionate mini-talk about any topic you love.', '🎤', 3),
-  ('happy-birthday-song', 'Sing happy birthday', 'You and a friend sing happy birthday to the birthday girls.', '🎶', 4),
-  ('three-shots', 'Take 3 shots', 'Party safely and prove your team spirit.', '🥃', 5),
-  ('favorite-color', 'Wear their favorite color', 'Wear something in your twin''s favorite color.', '🌈', 6),
-  ('pushups-27', 'Do 27 push ups', 'Video proof recommended. Modified pushups count.', '💪', 7),
-  ('advice-next-year', 'Leave advice for next year', 'Give the birthday girls one piece of wisdom for the year ahead.', '📝', 8),
-  ('bake-cake', 'Bake a cake', 'Cupcakes, mug cakes, and team-colored frosting are encouraged.', '🎂', 9),
-  ('origami', 'Complete an origami', 'Fold something cute, weird, or birthday-themed.', '🦢', 10),
-  ('same-birthday', 'Find a birthday match', 'Find someone who shares the birthday girls'' birthday.', '🔎', 11),
-  ('toast-language', 'Toast in another language', 'Make a toast to the birthday girls in a language other than English.', '🥂', 12),
-  ('picture-dog', 'Take a picture with a dog', 'Any good dog counts. Bonus points spiritually for costumes.', '🐶', 13),
-  ('other-twins', 'Picture with another set of twins', 'Find twins in the wild or share a photo with another twin duo.', '👯', 14),
-  ('throwback', 'Throwback photo', 'Share a throwback of you and the birthday girl.', '📸', 15),
-  ('other-color', 'Other twin''s color', 'Take a picture with someone wearing the other twin''s favorite color.', '🎨', 16)
+  ('run-5k', 'Run a 5k / 3 mile', 'Route, treadmill, or finish selfie.', '🏃', 1),
+  ('fond-memory', 'Share a fond memory', 'Sweet, funny, or chaotic.', '💌', 2),
+  ('ted-talk', '1 minute TED talk', 'One topic. Full passion.', '🎤', 3),
+  ('happy-birthday-song', 'Sing happy birthday', 'Grab a friend and sing.', '🎶', 4),
+  ('three-shots', 'Take 3 shots', 'Team spirit. Stay safe.', '🥃', 5),
+  ('favorite-color', 'Wear their favorite color', 'Outfit proof counts.', '🌈', 6),
+  ('pushups-27', 'Do 27 push ups', 'Modified counts. Video wins.', '💪', 7),
+  ('advice-next-year', 'Leave advice for next year', 'One note for the year ahead.', '📝', 8),
+  ('bake-cake', 'Bake a cake', 'Cupcakes and mug cakes count.', '🎂', 9),
+  ('origami', 'Complete an origami', 'Cute, weird, or birthday-themed.', '🦢', 10),
+  ('same-birthday', 'Find a birthday match', 'Same birthday. Screenshot it.', '🔎', 11),
+  ('toast-language', 'Toast in another language', 'Cheers, but not in English.', '🥂', 12),
+  ('picture-dog', 'Take a picture with a dog', 'Any good dog counts.', '🐶', 13),
+  ('other-twins', 'Picture with another set of twins', 'Twins in the wild.', '👯', 14),
+  ('throwback', 'Throwback photo', 'Old photo. Big nostalgia.', '📸', 15),
+  ('other-color', 'Other twin''s color', 'Find the rival color.', '🎨', 16)
 on conflict (id) do update set
   title = excluded.title,
   description = excluded.description,
