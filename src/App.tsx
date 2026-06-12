@@ -2,17 +2,14 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Camera,
   CheckCircle2,
-  Clock,
   Clipboard,
   Flag,
-  Flame,
   PartyPopper,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Trophy,
   Upload,
-  Zap,
 } from "lucide-react";
 import { challenges, teams, totalChallenges } from "./lib/gameData";
 import {
@@ -69,37 +66,6 @@ const safeFileName = (name: string) =>
     .replace(/[^a-z0-9.]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-const getRaceDeadline = () => {
-  const deadline = new Date();
-  const daysUntilSunday = (7 - deadline.getDay()) % 7;
-  deadline.setDate(deadline.getDate() + daysUntilSunday);
-  deadline.setHours(23, 59, 59, 999);
-  return deadline;
-};
-
-const formatTimeLeft = (now: Date) => {
-  const remainingMs = getRaceDeadline().getTime() - now.getTime();
-
-  if (remainingMs <= 0) {
-    return "Final scores";
-  }
-
-  const totalMinutes = Math.ceil(remainingMs / 60000);
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const minutes = totalMinutes % 60;
-
-  if (days > 0) {
-    return `${days}d ${hours}h left`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m left`;
-  }
-
-  return `${minutes}m left`;
-};
-
 function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<TeamId>(getInitialTeam);
   const [playerTeamId, setPlayerTeamId] = useState<TeamId>(getInitialTeam);
@@ -114,7 +80,6 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [now, setNow] = useState(() => new Date());
   const [adminPin, setAdminPin] = useState(
     () => window.localStorage.getItem(adminPinKey) ?? "",
   );
@@ -193,21 +158,6 @@ function App() {
   }, [approvedSubmissions]);
 
   const latestFeed = approvedSubmissions.slice(0, 8);
-  const teamScores = teams.map((team) => ({
-    team,
-    score: completedByTeam[team.id].size,
-  }));
-  const leader = teamScores.reduce(
-    (currentLeader, challenger) =>
-      challenger.score > currentLeader.score ? challenger : currentLeader,
-    teamScores[0],
-  );
-  const totalCompleted = teamScores.reduce((sum, item) => sum + item.score, 0);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const joinGame = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -374,9 +324,6 @@ function App() {
   return (
     <main className="app-shell">
       <Hero
-        leader={leader}
-        timeLeft={formatTimeLeft(now)}
-        totalCompleted={totalCompleted}
         selectedTeam={playerTeam}
         participantName={participantName}
         onCopyInvite={copyInvite}
@@ -393,6 +340,8 @@ function App() {
 
       {notice && <aside className="notice">{notice}</aside>}
 
+      <RaceTrack completedByTeam={completedByTeam} />
+
       {!participantName ? (
         <JoinCard
           draftName={draftName}
@@ -403,8 +352,6 @@ function App() {
         />
       ) : (
         <>
-          <RaceTrack completedByTeam={completedByTeam} />
-
           <section className="dashboard-grid">
             <TeamPanel
               completedByTeam={completedByTeam}
@@ -475,16 +422,10 @@ function App() {
 }
 
 function Hero({
-  leader,
-  timeLeft,
-  totalCompleted,
   selectedTeam,
   participantName,
   onCopyInvite,
 }: {
-  leader: { team: Team; score: number };
-  timeLeft: string;
-  totalCompleted: number;
   selectedTeam: Team;
   participantName: string;
   onCopyInvite: (teamId: TeamId) => Promise<void>;
@@ -504,20 +445,6 @@ function Hero({
           Pick a side, complete challenges, upload proof, and move your team toward the finish
           line.
         </p>
-        <div className="hero-stats">
-          <span>
-            <Flame size={16} />
-            {leader.score > 0 ? `${leader.team.name} leads` : "Race open"}
-          </span>
-          <span>
-            <Zap size={16} />
-            {totalCompleted} scored
-          </span>
-          <span>
-            <Clock size={16} />
-            {timeLeft}
-          </span>
-        </div>
         {participantName && (
           <div className="player-pill">
             {participantName} / <strong>{selectedTeam.name}</strong>
@@ -601,8 +528,8 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
     <section className="race-card">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Live race</p>
-          <h2>Score a square. Move forward.</h2>
+          <p className="eyebrow">Team tracker</p>
+          <h2>Progress to the finish line</h2>
         </div>
         <Flag className="finish-flag" size={34} />
       </div>
@@ -617,8 +544,8 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
               <div className="track-label">
                 <span className="team-dot" style={{ background: team.color }} />
                 <strong>{team.name}</strong>
-                <span>
-                  {score}/{totalChallenges}
+                <span className="track-score">
+                  {score}/{totalChallenges} claimed
                 </span>
               </div>
               <div className="track-line">
@@ -636,7 +563,10 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
                 </span>
                 <span className="finish">🏁</span>
               </div>
-              {isLeader && <span className="leader-badge">Leading</span>}
+              <div className="track-footer">
+                <span>{progress}% complete</span>
+                {isLeader && <span className="leader-badge">Leading</span>}
+              </div>
             </div>
           );
         })}
