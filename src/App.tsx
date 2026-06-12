@@ -2,17 +2,25 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Camera,
   CheckCircle2,
+  Clock,
   Clipboard,
   Flag,
+  Flame,
   PartyPopper,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Trophy,
   Upload,
+  Zap,
 } from "lucide-react";
 import { challenges, teams, totalChallenges } from "./lib/gameData";
-import { isSupabaseConfigured, proofBucket, supabase } from "./lib/supabase";
+import {
+  isSupabaseConfigured,
+  proofBucket,
+  supabase,
+  supabaseConfigError,
+} from "./lib/supabase";
 import type { Challenge, Submission, Team, TeamId } from "./types";
 import "./styles.css";
 
@@ -61,6 +69,37 @@ const safeFileName = (name: string) =>
     .replace(/[^a-z0-9.]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+const getRaceDeadline = () => {
+  const deadline = new Date();
+  const daysUntilSunday = (7 - deadline.getDay()) % 7;
+  deadline.setDate(deadline.getDate() + daysUntilSunday);
+  deadline.setHours(23, 59, 59, 999);
+  return deadline;
+};
+
+const formatTimeLeft = (now: Date) => {
+  const remainingMs = getRaceDeadline().getTime() - now.getTime();
+
+  if (remainingMs <= 0) {
+    return "Final scores";
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h left`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m left`;
+  }
+
+  return `${minutes}m left`;
+};
+
 function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<TeamId>(getInitialTeam);
   const [playerTeamId, setPlayerTeamId] = useState<TeamId>(getInitialTeam);
@@ -75,6 +114,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const [adminPin, setAdminPin] = useState(
     () => window.localStorage.getItem(adminPinKey) ?? "",
   );
@@ -101,7 +141,10 @@ function App() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setNotice(`Could not load submissions: ${error.message}`);
+      const setupHint = error.message.toLowerCase().includes("invalid path")
+        ? " Check VITE_SUPABASE_URL in Netlify. It should be the Project URL only, like https://your-project-id.supabase.co."
+        : "";
+      setNotice(`Could not load submissions: ${error.message}.${setupHint}`);
     } else {
       setSubmissions((data ?? []) as Submission[]);
     }
@@ -150,6 +193,21 @@ function App() {
   }, [approvedSubmissions]);
 
   const latestFeed = approvedSubmissions.slice(0, 8);
+  const teamScores = teams.map((team) => ({
+    team,
+    score: completedByTeam[team.id].size,
+  }));
+  const leader = teamScores.reduce(
+    (currentLeader, challenger) =>
+      challenger.score > currentLeader.score ? challenger : currentLeader,
+    teamScores[0],
+  );
+  const totalCompleted = teamScores.reduce((sum, item) => sum + item.score, 0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const joinGame = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -316,7 +374,10 @@ function App() {
   return (
     <main className="app-shell">
       <Hero
-        selectedTeam={selectedTeam}
+        leader={leader}
+        timeLeft={formatTimeLeft(now)}
+        totalCompleted={totalCompleted}
+        selectedTeam={playerTeam}
         participantName={participantName}
         onCopyInvite={copyInvite}
       />
@@ -326,6 +387,7 @@ function App() {
           <Sparkles size={18} />
           Demo mode is active because Supabase env vars are missing. Deploy with the values in
           <code>.env.example</code> to make progress shared and live.
+          {supabaseConfigError && ` ${supabaseConfigError}.`}
         </aside>
       )}
 
@@ -357,7 +419,10 @@ function App() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Weekend bingo board</p>
-                <h2>{selectedTeam.name}'s challenge board</h2>
+                <h2>{selectedTeam.name} board</h2>
+                <p className="board-progress">
+                  {completedByTeam[selectedTeamId].size}/{totalChallenges} claimed
+                </p>
               </div>
               <button className="ghost-button" onClick={() => void loadSubmissions()}>
                 <RefreshCw size={16} className={isRefreshing ? "spin" : ""} />
@@ -366,7 +431,7 @@ function App() {
             </div>
 
             <div className="bingo-board">
-              {challenges.map((challenge) => {
+              {challenges.map((challenge, index) => {
                 const completed = completedByTeam[selectedTeamId].has(challenge.id);
                 return (
                   <button
@@ -374,13 +439,14 @@ function App() {
                     key={challenge.id}
                     onClick={() => setActiveChallenge(challenge)}
                   >
+                    <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
                     <span className="challenge-icon">{challenge.icon}</span>
                     <span className="challenge-title">{challenge.title}</span>
                     <span className="challenge-description">{challenge.description}</span>
                     {completed && (
                       <span className="complete-ribbon">
                         <CheckCircle2 size={16} />
-                        Claimed
+                        Done
                       </span>
                     )}
                   </button>
@@ -409,29 +475,52 @@ function App() {
 }
 
 function Hero({
+  leader,
+  timeLeft,
+  totalCompleted,
   selectedTeam,
   participantName,
   onCopyInvite,
 }: {
+  leader: { team: Team; score: number };
+  timeLeft: string;
+  totalCompleted: number;
   selectedTeam: Team;
   participantName: string;
   onCopyInvite: (teamId: TeamId) => Promise<void>;
 }) {
   return (
     <header className="hero">
+      <div className="confetti confetti-one" />
+      <div className="confetti confetti-two" />
+      <div className="confetti confetti-three" />
       <div className="hero-copy">
         <p className="eyebrow">
           <PartyPopper size={18} />
-          Birthday weekend showdown
+          Birthday race
         </p>
-        <h1>Team P vs Team K: the ultimate birthday race</h1>
+        <h1>Team P vs Team K</h1>
         <p>
-          Pick a side, complete silly challenges, upload proof, and move your twin toward
-          the finish line before Sunday night.
+          Pick a side, complete challenges, upload proof, and move your team toward the finish
+          line.
         </p>
+        <div className="hero-stats">
+          <span>
+            <Flame size={16} />
+            {leader.score > 0 ? `${leader.team.name} leads` : "Race open"}
+          </span>
+          <span>
+            <Zap size={16} />
+            {totalCompleted} scored
+          </span>
+          <span>
+            <Clock size={16} />
+            {timeLeft}
+          </span>
+        </div>
         {participantName && (
           <div className="player-pill">
-            Playing as <strong>{participantName}</strong> for <strong>{selectedTeam.name}</strong>
+            {participantName} / <strong>{selectedTeam.name}</strong>
           </div>
         )}
       </div>
@@ -470,12 +559,12 @@ function JoinCard({
     <section className="join-card">
       <div>
         <p className="eyebrow">Choose your side</p>
-        <h2>Join the weekend game</h2>
-        <p>Use your real name, nickname, or team alias. No account required.</p>
+        <h2>Pick a team</h2>
+        <p>Nickname in. Team selected. Game on.</p>
       </div>
       <form onSubmit={onSubmit}>
         <label>
-          Your name
+          Player name
           <input
             autoFocus
             value={draftName}
@@ -498,7 +587,7 @@ function JoinCard({
           ))}
         </div>
         <button className="primary-button" type="submit">
-          Join the race
+          Start racing
         </button>
       </form>
     </section>
@@ -512,8 +601,8 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
     <section className="race-card">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Live race tracker</p>
-          <h2>Every completed square moves the team forward</h2>
+          <p className="eyebrow">Live race</p>
+          <h2>Score a square. Move forward.</h2>
         </div>
         <Flag className="finish-flag" size={34} />
       </div>
@@ -547,7 +636,7 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
                 </span>
                 <span className="finish">🏁</span>
               </div>
-              {isLeader && <span className="leader-badge">Current leader</span>}
+              {isLeader && <span className="leader-badge">Leading</span>}
             </div>
           );
         })}
@@ -569,7 +658,7 @@ function TeamPanel({
 }) {
   return (
     <section className="panel">
-      <p className="eyebrow">Team boards</p>
+      <p className="eyebrow">Scoreboard</p>
       <div className="team-cards">
         {teams.map((team) => {
           const completed = completedByTeam[team.id].size;
@@ -584,12 +673,12 @@ function TeamPanel({
                 <div>
                   <h3>{team.name}</h3>
                   <p>
-                    {completed} of {totalChallenges} challenges complete
+                    {completed}/{totalChallenges} claimed
                   </p>
                 </div>
               </div>
               <div className="team-card-actions">
-                <button onClick={() => setSelectedTeamId(team.id)}>View board</button>
+                <button onClick={() => setSelectedTeamId(team.id)}>View</button>
                 <button onClick={() => onCopyInvite(team.id)}>Invite</button>
               </div>
             </article>
@@ -603,12 +692,12 @@ function TeamPanel({
 function Feed({ submissions }: { submissions: Submission[] }) {
   return (
     <section className="panel">
-      <p className="eyebrow">Latest proof</p>
+      <p className="eyebrow">Proof feed</p>
       <div className="feed">
         {submissions.length === 0 ? (
           <div className="empty-feed">
             <Camera size={28} />
-            <p>No proof yet. First team to submit gets bragging rights.</p>
+            <p>No proof yet. Go first.</p>
           </div>
         ) : (
           submissions.map((submission) => {
@@ -670,13 +759,13 @@ function SubmissionModal({
           Close
         </button>
         <span className="modal-icon">{activeChallenge.icon}</span>
-        <p className="eyebrow">{selectedTeam.name} submission</p>
+        <p className="eyebrow">{selectedTeam.name} claim</p>
         <h2>{activeChallenge.title}</h2>
         <p>{activeChallenge.description}</p>
         <form onSubmit={submitProof}>
           <label className="upload-box">
             <Upload size={24} />
-            <span>{proofFile ? proofFile.name : "Upload photo or video proof"}</span>
+            <span>{proofFile ? proofFile.name : "Drop photo/video proof"}</span>
             <input
               accept="image/*,video/*"
               onChange={(event) => setProofFile(event.target.files?.[0] ?? null)}
@@ -684,15 +773,15 @@ function SubmissionModal({
             />
           </label>
           <label>
-            Caption or note
+            Caption
             <textarea
               value={caption}
               onChange={(event) => setCaption(event.target.value)}
-              placeholder="Tell us what happened..."
+              placeholder="Quick note..."
             />
           </label>
           <button className="primary-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Submitting..." : "Submit proof"}
+            {isSubmitting ? "Scoring..." : "Score this square"}
           </button>
         </form>
       </section>
