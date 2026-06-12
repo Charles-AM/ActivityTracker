@@ -12,7 +12,12 @@ import {
   Upload,
 } from "lucide-react";
 import { challenges, teams, totalChallenges } from "./lib/gameData";
-import { isSupabaseConfigured, proofBucket, supabase } from "./lib/supabase";
+import {
+  isSupabaseConfigured,
+  proofBucket,
+  supabase,
+  supabaseConfigError,
+} from "./lib/supabase";
 import type { Challenge, Submission, Team, TeamId } from "./types";
 import "./styles.css";
 
@@ -101,7 +106,10 @@ function App() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setNotice(`Could not load submissions: ${error.message}`);
+      const setupHint = error.message.toLowerCase().includes("invalid path")
+        ? " Check VITE_SUPABASE_URL in Netlify. It should be the Project URL only, like https://your-project-id.supabase.co."
+        : "";
+      setNotice(`Could not load submissions: ${error.message}.${setupHint}`);
     } else {
       setSubmissions((data ?? []) as Submission[]);
     }
@@ -326,6 +334,7 @@ function App() {
           <Sparkles size={18} />
           Demo mode is active because Supabase env vars are missing. Deploy with the values in
           <code>.env.example</code> to make progress shared and live.
+          {supabaseConfigError && ` ${supabaseConfigError}.`}
         </aside>
       )}
 
@@ -426,8 +435,8 @@ function Hero({
         </p>
         <h1>Team P vs Team K: the ultimate birthday race</h1>
         <p>
-          Pick a side, complete silly challenges, upload proof, and move your twin toward
-          the finish line before Sunday night.
+          Pick a side, complete challenges, upload proof, and move your team toward the finish
+          line.
         </p>
         {participantName && (
           <div className="player-pill">
