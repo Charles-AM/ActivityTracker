@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Camera,
-  CheckCircle2,
   Clipboard,
   Flag,
   PartyPopper,
@@ -423,12 +422,7 @@ function App() {
                 <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="challenge-title">{challenge.title}</span>
                 <span className="challenge-description">{challenge.description}</span>
-                {completed && (
-                  <span className="complete-ribbon">
-                    <CheckCircle2 size={16} />
-                    Done
-                  </span>
-                )}
+                {completed && <span className="complete-ribbon">Done</span>}
               </button>
             );
           })}
@@ -535,7 +529,6 @@ function SubmissionModal({
         <button className="close-button" onClick={() => setActiveChallenge(null)}>
           Close
         </button>
-        <span className="modal-icon">{activeChallenge.icon}</span>
         <p className="eyebrow">{selectedTeam.name} claim</p>
         <h2>{activeChallenge.title}</h2>
         <p>{activeChallenge.description}</p>
@@ -560,7 +553,6 @@ function SubmissionModal({
                   style={{ "--team-color": team.color } as React.CSSProperties}
                   type="button"
                 >
-                  <span>{team.emoji}</span>
                   {team.name}
                 </button>
               ))}
@@ -630,9 +622,11 @@ function RaceTrack({ completedByTeam }: { completedByTeam: Record<TeamId, Set<st
                   }
                 />
                 <span className="runner" style={{ left: `calc(${progress}% - 18px)` }}>
-                  {team.emoji}
+                  <span className="team-badge small" style={{ background: team.color }}>
+                    {team.shortName}
+                  </span>
                 </span>
-                <span className="finish">🏁</span>
+                <span className="finish">Finish</span>
               </div>
               <div className="track-footer">
                 <span>{progress}% complete</span>
@@ -670,7 +664,9 @@ function TeamPanel({
               style={{ "--team-color": team.color, "--team-accent": team.accent } as React.CSSProperties}
             >
               <div className="team-card-main">
-                <span className="team-emoji">{team.emoji}</span>
+                <span className="team-badge" style={{ background: team.color }}>
+                  {team.shortName}
+                </span>
                 <div>
                   <h3>{team.name}</h3>
                   <p>
@@ -714,12 +710,12 @@ function Feed({ submissions }: { submissions: Submission[] }) {
                     <img src={submission.proof_url} alt={challenge?.title ?? "Challenge proof"} />
                   )
                 ) : (
-                  <div className="proof-placeholder">{challenge?.icon ?? "✨"}</div>
+                  <div className="proof-placeholder">Proof</div>
                 )}
                 <div>
                   <strong>{challenge?.title ?? "Challenge"}</strong>
                   <p>
-                    {team?.emoji} {team?.name} by {submission.participant_name}
+                    {team?.name} by {submission.participant_name}
                   </p>
                   {submission.caption && <p className="caption">"{submission.caption}"</p>}
                 </div>
