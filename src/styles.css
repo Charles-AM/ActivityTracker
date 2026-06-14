@@ -710,16 +710,6 @@ textarea:focus {
   transform: rotate(-13deg);
 }
 
-.card-number {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1;
-  color: rgba(39, 27, 53, 0.24);
-  font-size: 0.82rem;
-  font-weight: 1000;
-}
-
 .challenge-title {
   position: relative;
   z-index: 1;
