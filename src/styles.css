@@ -871,11 +871,15 @@ textarea:focus {
 }
 
 .admin-controls {
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: end;
   margin-top: 20px;
   padding: 18px;
   background: rgba(255, 255, 255, 0.78);
+}
+
+.admin-clear-all {
+  white-space: nowrap;
 }
 
 .admin-list {

@@ -309,6 +309,52 @@ function App() {
     void loadSubmissions();
   };
 
+  const clearAllSubmissions = async () => {
+    setAdminMessage("");
+
+    if (!adminPin.trim()) {
+      setAdminMessage("Enter the host PIN first.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Clear every submission and reset the scoreboard? This cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      saveFallbackSubmissions([]);
+      setSubmissions([]);
+      setAdminMessage("Cleared all demo submissions.");
+      return;
+    }
+
+    const response = await fetch("/.netlify/functions/admin-submissions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pin: adminPin,
+        action: "clear-all",
+      }),
+    });
+
+    const result = (await response.json()) as { error?: string; message?: string };
+
+    if (!response.ok) {
+      setAdminMessage(result.error ?? "Could not clear submissions.");
+      return;
+    }
+
+    window.localStorage.setItem(adminPinKey, adminPin);
+    setAdminMessage(result.message ?? "Cleared all submissions.");
+    void loadSubmissions();
+  };
+
   if (isAdminRoute) {
     return (
       <AdminView
@@ -317,6 +363,7 @@ function App() {
         setAdminPin={setAdminPin}
         submissions={submissions}
         onAction={runAdminAction}
+        onClearAll={() => void clearAllSubmissions()}
         onRefresh={loadSubmissions}
       />
     );
@@ -692,6 +739,7 @@ function AdminView({
   setAdminPin,
   submissions,
   onAction,
+  onClearAll,
   onRefresh,
 }: {
   adminMessage: string;
@@ -699,6 +747,7 @@ function AdminView({
   setAdminPin: (pin: string) => void;
   submissions: Submission[];
   onAction: (submissionId: string, action: "approve" | "reject" | "delete") => Promise<void>;
+  onClearAll: () => void;
   onRefresh: () => Promise<void>;
 }) {
   const recentSubmissions = submissions.slice(0, 10);
@@ -716,7 +765,7 @@ function AdminView({
 
       {!isSupabaseConfigured && (
         <aside className="setup-banner">
-          Demo mode admin can only delete locally saved submissions.
+          Demo mode admin can delete submissions locally or clear all demo data.
         </aside>
       )}
 
@@ -733,6 +782,14 @@ function AdminView({
         <button className="ghost-button" onClick={() => void onRefresh()}>
           <RefreshCw size={16} />
           Refresh
+        </button>
+        <button
+          className="danger-button admin-clear-all"
+          disabled={submissions.length === 0}
+          onClick={onClearAll}
+          type="button"
+        >
+          Clear all submissions
         </button>
         <a className="ghost-link" href="/">
           Back to game

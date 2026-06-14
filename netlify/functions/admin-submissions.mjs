@@ -39,11 +39,28 @@ export const handler = async (event) => {
     return json(401, { error: "Invalid host PIN." });
   }
 
-  if (!submissionId || !["approve", "reject", "delete"].includes(action)) {
-    return json(400, { error: "Provide a submissionId and a valid action." });
+  if (!["approve", "reject", "delete", "clear-all"].includes(action)) {
+    return json(400, { error: "Provide a valid action." });
   }
 
   const supabase = createClient(SUPABASE_URL || VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  if (action === "clear-all") {
+    const { error, count } = await supabase
+      .from("submissions")
+      .delete({ count: "exact" })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (error) {
+      return json(500, { error: error.message });
+    }
+
+    return json(200, { message: `Cleared ${count ?? 0} submissions.` });
+  }
+
+  if (!submissionId) {
+    return json(400, { error: "Provide a submissionId for this action." });
+  }
 
   if (action === "delete") {
     const { error } = await supabase.from("submissions").delete().eq("id", submissionId);
