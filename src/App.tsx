@@ -24,6 +24,8 @@ const lastUsedNameKey = "birthday-race-last-name";
 const participantTeamKey = "birthday-race-participant-team";
 const demoSubmissionKey = "birthday-race-demo-submissions";
 const adminPinKey = "birthday-race-admin-pin";
+const FEED_LIMIT_DESKTOP = 5;
+const FEED_LIMIT_MOBILE = 3;
 
 const fallbackSubmissions = (): Submission[] => {
   try {
@@ -91,6 +93,9 @@ function App() {
     () => window.localStorage.getItem(adminPinKey) ?? "",
   );
   const [adminMessage, setAdminMessage] = useState("");
+  const [feedLimit, setFeedLimit] = useState(() =>
+    window.matchMedia("(max-width: 560px)").matches ? FEED_LIMIT_MOBILE : FEED_LIMIT_DESKTOP,
+  );
 
   const [inviteTeamId] = useState<TeamId | null>(getTeamFromPath);
   const inviteTeam = inviteTeamId
@@ -166,6 +171,20 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 560px)");
+    const updateFeedLimit = () => {
+      setFeedLimit(mediaQuery.matches ? FEED_LIMIT_MOBILE : FEED_LIMIT_DESKTOP);
+    };
+
+    updateFeedLimit();
+    mediaQuery.addEventListener("change", updateFeedLimit);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateFeedLimit);
+    };
+  }, []);
+
   const approvedSubmissions = useMemo(
     () => submissions.filter((submission) => submission.status === "approved"),
     [submissions],
@@ -184,7 +203,8 @@ function App() {
     return completed;
   }, [approvedSubmissions]);
 
-  const latestFeed = approvedSubmissions.slice(0, 8);
+  const latestFeed = approvedSubmissions.slice(0, feedLimit);
+  const hiddenFeedCount = Math.max(approvedSubmissions.length - latestFeed.length, 0);
 
   const copyInvite = async (teamId: TeamId) => {
     const url = `${window.location.origin}/join/${teamId}`;
@@ -406,7 +426,11 @@ function App() {
           setSelectedTeamId={setSelectedTeamId}
           onCopyInvite={copyInvite}
         />
-        <Feed submissions={latestFeed} />
+        <Feed
+          hiddenCount={hiddenFeedCount}
+          limit={feedLimit}
+          submissions={latestFeed}
+        />
       </section>
 
       <section className="board-section">
@@ -705,10 +729,26 @@ function TeamPanel({
   );
 }
 
-function Feed({ submissions }: { submissions: Submission[] }) {
+function Feed({
+  hiddenCount,
+  limit,
+  submissions,
+}: {
+  hiddenCount: number;
+  limit: number;
+  submissions: Submission[];
+}) {
   return (
-    <section className="panel">
-      <p className="eyebrow">Proof feed</p>
+    <section className="panel feed-panel">
+      <div className="feed-heading">
+        <p className="eyebrow">Latest proof</p>
+        {submissions.length > 0 && (
+          <p className="feed-note">
+            Showing the {Math.min(submissions.length, limit)} most recent
+            {hiddenCount > 0 ? ` · ${hiddenCount} older hidden` : ""}
+          </p>
+        )}
+      </div>
       <div className="feed">
         {submissions.length === 0 ? (
           <div className="empty-feed">
@@ -724,9 +764,13 @@ function Feed({ submissions }: { submissions: Submission[] }) {
               <article className="feed-item" key={submission.id}>
                 {submission.proof_url ? (
                   submission.proof_type?.startsWith("video") ? (
-                    <video src={submission.proof_url} muted controls />
+                    <video preload="none" src={submission.proof_url} muted controls />
                   ) : (
-                    <img src={submission.proof_url} alt={challenge?.title ?? "Challenge proof"} />
+                    <img
+                      alt={challenge?.title ?? "Challenge proof"}
+                      loading="lazy"
+                      src={submission.proof_url}
+                    />
                   )
                 ) : (
                   <div className="proof-placeholder">Proof</div>
