@@ -21,7 +21,7 @@ import {
 import type { Challenge, Submission, Team, TeamId } from "./types";
 import "./styles.css";
 
-const participantNameKey = "birthday-race-participant-name";
+const lastUsedNameKey = "birthday-race-last-name";
 const participantTeamKey = "birthday-race-participant-team";
 const demoSubmissionKey = "birthday-race-demo-submissions";
 const adminPinKey = "birthday-race-admin-pin";
@@ -68,13 +68,12 @@ const safeFileName = (name: string) =>
 
 function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<TeamId>(getInitialTeam);
-  const [playerTeamId, setPlayerTeamId] = useState<TeamId>(getInitialTeam);
-  const [participantName, setParticipantName] = useState(
-    () => window.localStorage.getItem(participantNameKey) ?? "",
-  );
-  const [draftName, setDraftName] = useState(participantName);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null);
+  const [submissionName, setSubmissionName] = useState(
+    () => window.localStorage.getItem(lastUsedNameKey) ?? "",
+  );
+  const [submissionTeamId, setSubmissionTeamId] = useState<TeamId>(getInitialTeam);
   const [caption, setCaption] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +86,22 @@ function App() {
 
   const isAdminRoute = window.location.pathname.startsWith("/admin");
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? teams[0];
-  const playerTeam = teams.find((team) => team.id === playerTeamId) ?? selectedTeam;
+  const submissionTeam = teams.find((team) => team.id === submissionTeamId) ?? selectedTeam;
+
+  const openChallenge = (challenge: Challenge) => {
+    const legacyName = window.localStorage.getItem("birthday-race-participant-name");
+    const lastName =
+      window.localStorage.getItem(lastUsedNameKey) ?? legacyName ?? "";
+    if (legacyName && !window.localStorage.getItem(lastUsedNameKey)) {
+      window.localStorage.setItem(lastUsedNameKey, legacyName);
+      window.localStorage.removeItem("birthday-race-participant-name");
+    }
+    setSubmissionName(lastName);
+    setSubmissionTeamId(selectedTeamId);
+    setCaption("");
+    setProofFile(null);
+    setActiveChallenge(challenge);
+  };
 
   const loadSubmissions = async () => {
     setIsRefreshing(true);
@@ -159,23 +173,6 @@ function App() {
 
   const latestFeed = approvedSubmissions.slice(0, 8);
 
-  const joinGame = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const cleanName = draftName.trim();
-
-    if (!cleanName) {
-      setNotice("Add a name or nickname before joining.");
-      return;
-    }
-
-    window.localStorage.setItem(participantNameKey, cleanName);
-    window.localStorage.setItem(participantTeamKey, selectedTeamId);
-    setParticipantName(cleanName);
-    setPlayerTeamId(selectedTeamId);
-    setNotice(`Welcome to ${selectedTeam.name}, ${cleanName}!`);
-    window.history.pushState({}, "", "/");
-  };
-
   const copyInvite = async (teamId: TeamId) => {
     const url = `${window.location.origin}/join/${teamId}`;
     await navigator.clipboard.writeText(url);
@@ -189,8 +186,10 @@ function App() {
       return;
     }
 
-    if (!participantName.trim()) {
-      setNotice("Join a team before submitting proof.");
+    const cleanName = submissionName.trim();
+
+    if (!cleanName) {
+      setNotice("Add the name of whoever completed this challenge.");
       return;
     }
 
@@ -208,7 +207,7 @@ function App() {
       let proofType: string | null = proofFile?.type ?? null;
 
       if (isSupabaseConfigured && client && proofFile) {
-        const path = `${playerTeamId}/${activeChallenge.id}/${Date.now()}-${safeFileName(
+        const path = `${submissionTeamId}/${activeChallenge.id}/${Date.now()}-${safeFileName(
           proofFile.name,
         )}`;
         const { error: uploadError } = await client.storage
@@ -226,10 +225,12 @@ function App() {
         proofUrl = data.publicUrl;
       }
 
+      window.localStorage.setItem(lastUsedNameKey, cleanName);
+
       const submission: Omit<Submission, "id" | "created_at"> = {
-        team_id: playerTeamId,
+        team_id: submissionTeamId,
         challenge_id: activeChallenge.id,
-        participant_name: participantName.trim(),
+        participant_name: cleanName,
         caption: caption.trim() || null,
         proof_url: proofUrl,
         proof_type: proofType,
@@ -252,7 +253,7 @@ function App() {
         setSubmissions(nextSubmissions);
       }
 
-      setNotice(`${activeChallenge.title} is complete for ${playerTeam.name}!`);
+      setNotice(`${activeChallenge.title} scored for ${submissionTeam.name} by ${cleanName}!`);
       setCaption("");
       setProofFile(null);
       setActiveChallenge(null);
@@ -308,6 +309,52 @@ function App() {
     void loadSubmissions();
   };
 
+  const clearAllSubmissions = async () => {
+    setAdminMessage("");
+
+    if (!adminPin.trim()) {
+      setAdminMessage("Enter the host PIN first.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Clear every submission and reset the scoreboard? This cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      saveFallbackSubmissions([]);
+      setSubmissions([]);
+      setAdminMessage("Cleared all demo submissions.");
+      return;
+    }
+
+    const response = await fetch("/.netlify/functions/admin-submissions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pin: adminPin,
+        action: "clear-all",
+      }),
+    });
+
+    const result = (await response.json()) as { error?: string; message?: string };
+
+    if (!response.ok) {
+      setAdminMessage(result.error ?? "Could not clear submissions.");
+      return;
+    }
+
+    window.localStorage.setItem(adminPinKey, adminPin);
+    setAdminMessage(result.message ?? "Cleared all submissions.");
+    void loadSubmissions();
+  };
+
   if (isAdminRoute) {
     return (
       <AdminView
@@ -316,6 +363,7 @@ function App() {
         setAdminPin={setAdminPin}
         submissions={submissions}
         onAction={runAdminAction}
+        onClearAll={() => void clearAllSubmissions()}
         onRefresh={loadSubmissions}
       />
     );
@@ -323,11 +371,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero
-        selectedTeam={playerTeam}
-        participantName={participantName}
-        onCopyInvite={copyInvite}
-      />
+      <Hero selectedTeam={selectedTeam} onCopyInvite={copyInvite} />
 
       {!isSupabaseConfigured && (
         <aside className="setup-banner">
@@ -342,67 +386,55 @@ function App() {
 
       <RaceTrack completedByTeam={completedByTeam} />
 
-      {!participantName ? (
-        <JoinCard
-          draftName={draftName}
+      <section className="dashboard-grid">
+        <TeamPanel
+          completedByTeam={completedByTeam}
           selectedTeamId={selectedTeamId}
-          setDraftName={setDraftName}
           setSelectedTeamId={setSelectedTeamId}
-          onSubmit={joinGame}
+          onCopyInvite={copyInvite}
         />
-      ) : (
-        <>
-          <section className="dashboard-grid">
-            <TeamPanel
-              completedByTeam={completedByTeam}
-              selectedTeamId={selectedTeamId}
-              setSelectedTeamId={setSelectedTeamId}
-              onCopyInvite={copyInvite}
-            />
-            <Feed submissions={latestFeed} />
-          </section>
+        <Feed submissions={latestFeed} />
+      </section>
 
-          <section className="board-section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Weekend bingo board</p>
-                <h2>{selectedTeam.name} board</h2>
-                <p className="board-progress">
-                  {completedByTeam[selectedTeamId].size}/{totalChallenges} claimed
-                </p>
-              </div>
-              <button className="ghost-button" onClick={() => void loadSubmissions()}>
-                <RefreshCw size={16} className={isRefreshing ? "spin" : ""} />
-                Refresh
+      <section className="board-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Weekend bingo board</p>
+            <h2>{selectedTeam.name} board</h2>
+            <p className="board-progress">
+              {completedByTeam[selectedTeamId].size}/{totalChallenges} claimed
+            </p>
+          </div>
+          <button className="ghost-button" onClick={() => void loadSubmissions()}>
+            <RefreshCw size={16} className={isRefreshing ? "spin" : ""} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="bingo-board">
+          {challenges.map((challenge, index) => {
+            const completed = completedByTeam[selectedTeamId].has(challenge.id);
+            return (
+              <button
+                className={`challenge-card ${completed ? "complete" : ""}`}
+                key={challenge.id}
+                onClick={() => openChallenge(challenge)}
+              >
+                <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
+                <span className="challenge-icon">{challenge.icon}</span>
+                <span className="challenge-title">{challenge.title}</span>
+                <span className="challenge-description">{challenge.description}</span>
+                {completed && (
+                  <span className="complete-ribbon">
+                    <CheckCircle2 size={16} />
+                    Done
+                  </span>
+                )}
               </button>
-            </div>
-
-            <div className="bingo-board">
-              {challenges.map((challenge, index) => {
-                const completed = completedByTeam[selectedTeamId].has(challenge.id);
-                return (
-                  <button
-                    className={`challenge-card ${completed ? "complete" : ""}`}
-                    key={challenge.id}
-                    onClick={() => setActiveChallenge(challenge)}
-                  >
-                    <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="challenge-icon">{challenge.icon}</span>
-                    <span className="challenge-title">{challenge.title}</span>
-                    <span className="challenge-description">{challenge.description}</span>
-                    {completed && (
-                      <span className="complete-ribbon">
-                        <CheckCircle2 size={16} />
-                        Done
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        </>
-      )}
+            );
+          })}
+        </div>
+      </section>
 
       {activeChallenge && (
         <SubmissionModal
@@ -410,10 +442,14 @@ function App() {
           caption={caption}
           isSubmitting={isSubmitting}
           proofFile={proofFile}
-          selectedTeam={playerTeam}
+          selectedTeam={submissionTeam}
+          submissionName={submissionName}
+          submissionTeamId={submissionTeamId}
           setActiveChallenge={setActiveChallenge}
           setCaption={setCaption}
           setProofFile={setProofFile}
+          setSubmissionName={setSubmissionName}
+          setSubmissionTeamId={setSubmissionTeamId}
           submitProof={submitProof}
         />
       )}
@@ -423,11 +459,9 @@ function App() {
 
 function Hero({
   selectedTeam,
-  participantName,
   onCopyInvite,
 }: {
   selectedTeam: Team;
-  participantName: string;
   onCopyInvite: (teamId: TeamId) => Promise<void>;
 }) {
   return (
@@ -445,11 +479,9 @@ function Hero({
           Pick a side, complete challenges, upload proof, and move your team toward the finish
           line.
         </p>
-        {participantName && (
-          <div className="player-pill">
-            {participantName} / <strong>{selectedTeam.name}</strong>
-          </div>
-        )}
+        <div className="player-pill">
+          Viewing <strong>{selectedTeam.name}</strong> board
+        </div>
       </div>
       <div className="invite-card">
         <div className="invite-card-top">
@@ -469,55 +501,95 @@ function Hero({
   );
 }
 
-function JoinCard({
-  draftName,
-  selectedTeamId,
-  setDraftName,
-  setSelectedTeamId,
-  onSubmit,
+function SubmissionModal({
+  activeChallenge,
+  caption,
+  isSubmitting,
+  proofFile,
+  selectedTeam,
+  submissionName,
+  submissionTeamId,
+  setActiveChallenge,
+  setCaption,
+  setProofFile,
+  setSubmissionName,
+  setSubmissionTeamId,
+  submitProof,
 }: {
-  draftName: string;
-  selectedTeamId: TeamId;
-  setDraftName: (name: string) => void;
-  setSelectedTeamId: (team: TeamId) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  activeChallenge: Challenge;
+  caption: string;
+  isSubmitting: boolean;
+  proofFile: File | null;
+  selectedTeam: Team;
+  submissionName: string;
+  submissionTeamId: TeamId;
+  setActiveChallenge: (challenge: Challenge | null) => void;
+  setCaption: (caption: string) => void;
+  setProofFile: (file: File | null) => void;
+  setSubmissionName: (name: string) => void;
+  setSubmissionTeamId: (team: TeamId) => void;
+  submitProof: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   return (
-    <section className="join-card">
-      <div>
-        <p className="eyebrow">Choose your side</p>
-        <h2>Pick a team</h2>
-        <p>Nickname in. Team selected. Game on.</p>
-      </div>
-      <form onSubmit={onSubmit}>
-        <label>
-          Player name
-          <input
-            autoFocus
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
-            placeholder="e.g. Captain Cake"
-          />
-        </label>
-        <div className="team-picker">
-          {teams.map((team) => (
-            <button
-              className={selectedTeamId === team.id ? "selected" : ""}
-              key={team.id}
-              onClick={() => setSelectedTeamId(team.id)}
-              style={{ "--team-color": team.color } as React.CSSProperties}
-              type="button"
-            >
-              <span>{team.emoji}</span>
-              {team.name}
-            </button>
-          ))}
-        </div>
-        <button className="primary-button" type="submit">
-          Start racing
+    <div className="modal-backdrop" role="presentation">
+      <section className="modal-card" role="dialog" aria-modal="true">
+        <button className="close-button" onClick={() => setActiveChallenge(null)}>
+          Close
         </button>
-      </form>
-    </section>
+        <span className="modal-icon">{activeChallenge.icon}</span>
+        <p className="eyebrow">{selectedTeam.name} claim</p>
+        <h2>{activeChallenge.title}</h2>
+        <p>{activeChallenge.description}</p>
+        <form onSubmit={submitProof}>
+          <label>
+            Who completed this?
+            <input
+              autoFocus
+              value={submissionName}
+              onChange={(event) => setSubmissionName(event.target.value)}
+              placeholder="Type your name or nickname"
+            />
+          </label>
+          <div className="submission-team-picker">
+            <span className="submission-team-label">Team</span>
+            <div className="team-picker compact">
+              {teams.map((team) => (
+                <button
+                  className={submissionTeamId === team.id ? "selected" : ""}
+                  key={team.id}
+                  onClick={() => setSubmissionTeamId(team.id)}
+                  style={{ "--team-color": team.color } as React.CSSProperties}
+                  type="button"
+                >
+                  <span>{team.emoji}</span>
+                  {team.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="upload-box">
+            <Upload size={24} />
+            <span>{proofFile ? proofFile.name : "Drop photo/video proof"}</span>
+            <input
+              accept="image/*,video/*"
+              onChange={(event) => setProofFile(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </label>
+          <label>
+            Caption
+            <textarea
+              value={caption}
+              onChange={(event) => setCaption(event.target.value)}
+              placeholder="Quick note..."
+            />
+          </label>
+          <button className="primary-button" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Scoring..." : "Score this square"}
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -661,70 +733,13 @@ function Feed({ submissions }: { submissions: Submission[] }) {
   );
 }
 
-function SubmissionModal({
-  activeChallenge,
-  caption,
-  isSubmitting,
-  proofFile,
-  selectedTeam,
-  setActiveChallenge,
-  setCaption,
-  setProofFile,
-  submitProof,
-}: {
-  activeChallenge: Challenge;
-  caption: string;
-  isSubmitting: boolean;
-  proofFile: File | null;
-  selectedTeam: Team;
-  setActiveChallenge: (challenge: Challenge | null) => void;
-  setCaption: (caption: string) => void;
-  setProofFile: (file: File | null) => void;
-  submitProof: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-}) {
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal-card" role="dialog" aria-modal="true">
-        <button className="close-button" onClick={() => setActiveChallenge(null)}>
-          Close
-        </button>
-        <span className="modal-icon">{activeChallenge.icon}</span>
-        <p className="eyebrow">{selectedTeam.name} claim</p>
-        <h2>{activeChallenge.title}</h2>
-        <p>{activeChallenge.description}</p>
-        <form onSubmit={submitProof}>
-          <label className="upload-box">
-            <Upload size={24} />
-            <span>{proofFile ? proofFile.name : "Drop photo/video proof"}</span>
-            <input
-              accept="image/*,video/*"
-              onChange={(event) => setProofFile(event.target.files?.[0] ?? null)}
-              type="file"
-            />
-          </label>
-          <label>
-            Caption
-            <textarea
-              value={caption}
-              onChange={(event) => setCaption(event.target.value)}
-              placeholder="Quick note..."
-            />
-          </label>
-          <button className="primary-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Scoring..." : "Score this square"}
-          </button>
-        </form>
-      </section>
-    </div>
-  );
-}
-
 function AdminView({
   adminMessage,
   adminPin,
   setAdminPin,
   submissions,
   onAction,
+  onClearAll,
   onRefresh,
 }: {
   adminMessage: string;
@@ -732,8 +747,11 @@ function AdminView({
   setAdminPin: (pin: string) => void;
   submissions: Submission[];
   onAction: (submissionId: string, action: "approve" | "reject" | "delete") => Promise<void>;
+  onClearAll: () => void;
   onRefresh: () => Promise<void>;
 }) {
+  const recentSubmissions = submissions.slice(0, 10);
+
   return (
     <main className="app-shell admin-shell">
       <header className="admin-hero">
@@ -747,7 +765,7 @@ function AdminView({
 
       {!isSupabaseConfigured && (
         <aside className="setup-banner">
-          Demo mode admin can only delete locally saved submissions.
+          Demo mode admin can delete submissions locally or clear all demo data.
         </aside>
       )}
 
@@ -765,6 +783,14 @@ function AdminView({
           <RefreshCw size={16} />
           Refresh
         </button>
+        <button
+          className="danger-button admin-clear-all"
+          disabled={submissions.length === 0}
+          onClick={onClearAll}
+          type="button"
+        >
+          Clear all submissions
+        </button>
         <a className="ghost-link" href="/">
           Back to game
         </a>
@@ -772,7 +798,53 @@ function AdminView({
 
       {adminMessage && <aside className="notice">{adminMessage}</aside>}
 
+      {recentSubmissions.length > 0 && (
+        <section className="admin-recent">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Latest activity</p>
+              <h2>Most recent submissions</h2>
+            </div>
+          </div>
+          <div className="admin-recent-list">
+            {recentSubmissions.map((submission) => {
+              const team = teams.find((item) => item.id === submission.team_id);
+              const challenge = challenges.find((item) => item.id === submission.challenge_id);
+
+              return (
+                <article className="admin-recent-item" key={`recent-${submission.id}`}>
+                  <div className="admin-recent-main">
+                    <strong className="admin-recent-name">{submission.participant_name}</strong>
+                    <span className={`status-pill ${submission.status}`}>{submission.status}</span>
+                  </div>
+                  <p>
+                    {challenge?.title ?? "Challenge"} · {team?.emoji} {team?.name}
+                  </p>
+                  <p className="admin-recent-time">{formatDate(submission.created_at)}</p>
+                  <div className="admin-actions compact">
+                    <button onClick={() => void onAction(submission.id, "approve")}>Approve</button>
+                    <button onClick={() => void onAction(submission.id, "reject")}>Reject</button>
+                    <button
+                      className="danger-button"
+                      onClick={() => void onAction(submission.id, "delete")}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="admin-list">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">All submissions</p>
+            <h2>Full review list</h2>
+          </div>
+        </div>
         {submissions.map((submission) => {
           const team = teams.find((item) => item.id === submission.team_id);
           const challenge = challenges.find((item) => item.id === submission.challenge_id);
@@ -791,9 +863,9 @@ function AdminView({
               <div>
                 <span className={`status-pill ${submission.status}`}>{submission.status}</span>
                 <h3>{challenge?.title ?? "Challenge"}</h3>
+                <p className="admin-participant-name">{submission.participant_name}</p>
                 <p>
-                  {team?.emoji} {team?.name} by {submission.participant_name} on{" "}
-                  {formatDate(submission.created_at)}
+                  {team?.emoji} {team?.name} on {formatDate(submission.created_at)}
                 </p>
                 {submission.caption && <p className="caption">"{submission.caption}"</p>}
                 <div className="admin-actions">
