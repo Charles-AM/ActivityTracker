@@ -411,7 +411,7 @@ function App() {
         </div>
 
         <div className="bingo-board">
-          {challenges.map((challenge, index) => {
+          {challenges.map((challenge) => {
             const completed = completedByTeam[selectedTeamId].has(challenge.id);
             return (
               <button
@@ -419,7 +419,6 @@ function App() {
                 key={challenge.id}
                 onClick={() => openChallenge(challenge)}
               >
-                <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="challenge-title">{challenge.title}</span>
                 {completed && <span className="complete-ribbon">Done</span>}
               </button>
