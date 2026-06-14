@@ -38,13 +38,22 @@ const saveFallbackSubmissions = (submissions: Submission[]) => {
   window.localStorage.setItem(demoSubmissionKey, JSON.stringify(submissions));
 };
 
-const getInitialTeam = (): TeamId => {
+const getTeamFromPath = (): TeamId | null => {
   if (window.location.pathname.includes("team-p")) {
     return "team-p";
   }
 
   if (window.location.pathname.includes("team-k")) {
     return "team-k";
+  }
+
+  return null;
+};
+
+const getInitialTeam = (): TeamId => {
+  const teamFromPath = getTeamFromPath();
+  if (teamFromPath) {
+    return teamFromPath;
   }
 
   const stored = window.localStorage.getItem(participantTeamKey);
@@ -82,6 +91,11 @@ function App() {
     () => window.localStorage.getItem(adminPinKey) ?? "",
   );
   const [adminMessage, setAdminMessage] = useState("");
+
+  const [inviteTeamId] = useState<TeamId | null>(getTeamFromPath);
+  const inviteTeam = inviteTeamId
+    ? (teams.find((team) => team.id === inviteTeamId) ?? null)
+    : null;
 
   const isAdminRoute = window.location.pathname.startsWith("/admin");
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? teams[0];
@@ -370,7 +384,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero onCopyInvite={copyInvite} />
+      <Hero inviteTeam={inviteTeam} onCopyInvite={copyInvite} />
 
       {!isSupabaseConfigured && (
         <aside className="setup-banner">
@@ -448,7 +462,13 @@ function App() {
   );
 }
 
-function Hero({ onCopyInvite }: { onCopyInvite: (teamId: TeamId) => Promise<void> }) {
+function Hero({
+  inviteTeam,
+  onCopyInvite,
+}: {
+  inviteTeam: Team | null;
+  onCopyInvite: (teamId: TeamId) => Promise<void>;
+}) {
   return (
     <header className="hero">
       <div className="confetti confetti-one" />
@@ -464,7 +484,17 @@ function Hero({ onCopyInvite }: { onCopyInvite: (teamId: TeamId) => Promise<void
           Pick a side, complete challenges, upload proof, and move your team toward the finish
           line.
         </p>
-        <div className="player-pill">Which team will come out on top</div>
+        <div className="hero-tagline">
+          <div className="player-pill">Which team will come out on top</div>
+          {inviteTeam && (
+            <p
+              className="hero-team-name"
+              style={{ "--team-color": inviteTeam.color } as React.CSSProperties}
+            >
+              {inviteTeam.name}
+            </p>
+          )}
+        </div>
       </div>
       <div className="invite-card">
         <div className="invite-card-top">
