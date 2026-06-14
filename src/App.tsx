@@ -421,7 +421,6 @@ function App() {
                 onClick={() => openChallenge(challenge)}
               >
                 <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
-                <span className="challenge-icon">{challenge.icon}</span>
                 <span className="challenge-title">{challenge.title}</span>
                 <span className="challenge-description">{challenge.description}</span>
                 {completed && (

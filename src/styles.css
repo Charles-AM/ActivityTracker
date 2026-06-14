@@ -641,8 +641,8 @@ textarea:focus {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 10px;
-  min-height: 172px;
+  gap: 8px;
+  min-height: 132px;
   padding: 16px;
   border-radius: 24px;
   color: #271b35;
@@ -694,12 +694,6 @@ textarea:focus {
   transform: rotate(-13deg);
 }
 
-.challenge-icon {
-  position: relative;
-  z-index: 1;
-  font-size: 2.15rem;
-}
-
 .card-number {
   position: absolute;
   top: 14px;
@@ -713,7 +707,7 @@ textarea:focus {
 .challenge-title {
   position: relative;
   z-index: 1;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 950;
   line-height: 1.1;
 }
@@ -1012,7 +1006,7 @@ textarea:focus {
   }
 
   .challenge-card {
-    min-height: 150px;
+    min-height: 120px;
   }
 
   .feed-item,
