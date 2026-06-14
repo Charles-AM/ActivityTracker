@@ -370,7 +370,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Hero selectedTeam={selectedTeam} onCopyInvite={copyInvite} />
+      <Hero onCopyInvite={copyInvite} />
 
       {!isSupabaseConfigured && (
         <aside className="setup-banner">
@@ -449,13 +449,7 @@ function App() {
   );
 }
 
-function Hero({
-  selectedTeam,
-  onCopyInvite,
-}: {
-  selectedTeam: Team;
-  onCopyInvite: (teamId: TeamId) => Promise<void>;
-}) {
+function Hero({ onCopyInvite }: { onCopyInvite: (teamId: TeamId) => Promise<void> }) {
   return (
     <header className="hero">
       <div className="confetti confetti-one" />
@@ -471,9 +465,7 @@ function Hero({
           Pick a side, complete challenges, upload proof, and move your team toward the finish
           line.
         </p>
-        <div className="player-pill">
-          Viewing <strong>{selectedTeam.name}</strong> board
-        </div>
+        <div className="player-pill">Which team will come out on top</div>
       </div>
       <div className="invite-card">
         <div className="invite-card-top">
