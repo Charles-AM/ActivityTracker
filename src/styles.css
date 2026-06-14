@@ -198,6 +198,23 @@ h3 {
   box-shadow: 0 14px 30px rgba(43, 32, 55, 0.22);
 }
 
+.hero-tagline {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.hero-team-name {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 14%, white);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--team-color) 28%, transparent);
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
 .invite-card {
   align-self: center;
   display: grid;
