@@ -355,6 +355,27 @@ textarea:focus {
   box-shadow: 0 16px 34px color-mix(in srgb, var(--team-color) 30%, transparent);
 }
 
+.team-picker.compact button {
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
+.team-picker.compact button span {
+  margin-bottom: 4px;
+  font-size: 1.4rem;
+}
+
+.submission-team-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.submission-team-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgba(34, 24, 47, 0.72);
+}
+
 .primary-button {
   padding: 15px 18px;
   border-radius: 999px;
@@ -783,6 +804,62 @@ textarea:focus {
 
 .admin-shell {
   max-width: 960px;
+}
+
+.admin-recent {
+  margin-top: 20px;
+  padding: 18px;
+  border: 2px solid rgba(34, 24, 47, 0.08);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 24px 80px rgba(84, 42, 115, 0.13);
+}
+
+.admin-recent-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.admin-recent-item {
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 246, 251, 0.95), rgba(238, 244, 255, 0.9));
+  border: 1px solid rgba(34, 24, 47, 0.08);
+}
+
+.admin-recent-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-recent-name {
+  font-size: 1.15rem;
+  color: #24182f;
+}
+
+.admin-recent-time {
+  margin: 4px 0 10px;
+  font-size: 0.9rem;
+  color: rgba(34, 24, 47, 0.62);
+}
+
+.admin-participant-name {
+  margin: 4px 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #24182f;
+}
+
+.admin-actions.compact {
+  gap: 8px;
+}
+
+.admin-actions.compact button {
+  padding: 8px 12px;
+  font-size: 0.88rem;
 }
 
 .admin-hero {
