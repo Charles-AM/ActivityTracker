@@ -76,22 +76,22 @@ on conflict (id) do update set
 
 insert into public.challenges (id, title, description, icon, board_position)
 values
-  ('run-5k', 'Run a 5k / 3 mile', 'Route, treadmill, or finish selfie.', '🏃', 1),
-  ('fond-memory', 'Share a fond memory', 'Sweet, funny, or chaotic.', '💌', 2),
-  ('ted-talk', '1 minute TED talk', 'One topic. Full passion.', '🎤', 3),
-  ('happy-birthday-song', 'Sing happy birthday', 'Grab a friend and sing.', '🎶', 4),
-  ('three-shots', 'Take 3 shots', 'Team spirit. Stay safe.', '🥃', 5),
-  ('favorite-color', 'Wear their favorite color', 'Outfit proof counts.', '🌈', 6),
-  ('pushups-27', 'Do 27 push ups', 'Modified counts. Video wins.', '💪', 7),
-  ('advice-next-year', 'Leave advice for next year', 'One note for the year ahead.', '📝', 8),
-  ('bake-cake', 'Bake a cake', 'Cupcakes and mug cakes count.', '🎂', 9),
-  ('origami', 'Complete an origami', 'Cute, weird, or birthday-themed.', '🦢', 10),
-  ('same-birthday', 'Find a birthday match', 'Same birthday. Screenshot it.', '🔎', 11),
-  ('toast-language', 'Toast in another language', 'Cheers, but not in English.', '🥂', 12),
-  ('picture-dog', 'Take a picture with a dog', 'Any good dog counts.', '🐶', 13),
-  ('other-twins', 'Picture with another set of twins', 'Twins in the wild.', '👯', 14),
-  ('throwback', 'Throwback photo', 'Old photo. Big nostalgia.', '📸', 15),
-  ('other-color', 'Other twin''s color', 'Find the rival color.', '🎨', 16)
+  ('run-5k', 'Run a 5k/3 mile', '', '', 1),
+  ('fond-memory', 'Share a fond memory you have of the birthday girl', '', '', 2),
+  ('ted-talk', '1 minute TED talk about a topic you are passionate about', '', '', 3),
+  ('happy-birthday-song', 'Have you and a friend sing "happy birthday" to the birthday girls', '', '', 4),
+  ('three-shots', 'Take 3 shots', '', '', 5),
+  ('favorite-color', 'Wear something out in the birthday girls'' favourite colour', '', '', 6),
+  ('pushups-27', 'Do 27 push ups', '', '', 7),
+  ('advice-next-year', 'Leave advice for the next year', '', '', 8),
+  ('bake-cake', 'Bake a cake', '', '', 9),
+  ('origami', 'Complete an origami', '', '', 10),
+  ('same-birthday', 'Find someone who shares the birthday girls'' birthday', '', '', 11),
+  ('toast-language', 'Make a toast to the birthday girls in a different language than English', '', '', 12),
+  ('picture-dog', 'Take a picture with a dog', '', '', 13),
+  ('other-twins', 'Share a picture with another set of twins', '', '', 14),
+  ('throwback', 'Throwback of you and the birthday girl', '', '', 15),
+  ('other-color', 'Take a picture with someone wearing the other twin''s favourite colour', '', '', 16)
 on conflict (id) do update set
   title = excluded.title,
   description = excluded.description,

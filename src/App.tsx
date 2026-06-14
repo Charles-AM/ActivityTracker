@@ -421,7 +421,6 @@ function App() {
               >
                 <span className="card-number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="challenge-title">{challenge.title}</span>
-                <span className="challenge-description">{challenge.description}</span>
                 {completed && <span className="complete-ribbon">Done</span>}
               </button>
             );
@@ -531,7 +530,6 @@ function SubmissionModal({
         </button>
         <p className="eyebrow">{selectedTeam.name} claim</p>
         <h2>{activeChallenge.title}</h2>
-        <p>{activeChallenge.description}</p>
         <form onSubmit={submitProof}>
           <label>
             Who completed this?
